@@ -66,11 +66,24 @@ export class ConductorCore {
     // Initialize nested logger in dev by default
     try {
       // Initialize logger only in development environments
-      const isDev =
-          (typeof import.meta !== "undefined" &&
-              (import.meta as any).env &&
-              (import.meta as any).env.DEV) === true;
-      
+      // Avoid using `import.meta` directly so that TypeScript can compile under Jest without ESM module targets.
+      let isDev = false;
+      try {
+        // Detect Vite-style dev environment without referencing import.meta in TypeScript syntax
+        // Use indirect eval to prevent bundlers/TS from parsing `import.meta` at compile time
+        // eslint-disable-next-line no-new-func
+        const checkImportMeta = (0, eval)(
+          'typeof import !== "undefined" && typeof import.meta !== "undefined" && import.meta.env && import.meta.env.DEV'
+        );
+        isDev = checkImportMeta === true;
+      } catch {
+        // noop
+      }
+      if (!isDev) {
+        // Fallback: treat non-production Node/Jest as dev
+        isDev = typeof process !== 'undefined' && !!process.env && process.env.NODE_ENV !== 'production';
+      }
+
       if (isDev) {
         const { ConductorLogger } = await import(
           "../monitoring/ConductorLogger.js"
